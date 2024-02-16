@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Canvas Magic</title>
+    <style>
+      body {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        background-color: #f4f4f4;
+      }
+
+      #canvasContainer {
+        position: relative;
+        border: 1px solid black;
+        margin-bottom: 20px;
+      }
+
+      canvas {
+        display: block;
+      }
+
+      #legend {
+        display: flex;
+        margin-top: 10px;
+      }
+
+      #legend > div {
+        margin-right: 10px;
+        display: flex;
+        align-items: center;
+      }
+
+      .occupied,
+      .empty,
+      .last-two-days,
+      .last-day {
+        width: 20px;
+        height: 20px;
+        margin-right: 5px;
+      }
+
+      .occupied {
+        background-color: green;
+      }
+
+      .empty {
+        background-color: darkgray;
+      }
+
+      .last-two-days {
+        background-color: yellow;
+      }
+
+      .last-day {
+        background-color: red;
+      }
+
+      #pageNavigation {
+        display: flex;
+        align-items: flex-end;
+        margin-right: 10px;
+      }
+
+      #moreOptionsContainer {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+      }
+
+      #moreOptions {
+        cursor: pointer;
+      }
+
+      #optionsDropdown {
+        display: none;
+        flex-direction: column;
+        position: absolute;
+        background-color: #f9f9f9;
+        min-width: 160px;
+        box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+        z-index: 1;
+      }
+
+      .dropdownButton {
+        padding: 10px;
+        text-decoration: none;
+        color: black;
+        display: block;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .dropdownButton:hover {
+        background-color: #f1f1f1;
+      }
+
+      button {
+        margin-right: 10px;
+        cursor: pointer;
+      }
+
+      .popup {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        border: 2px solid black;
+        padding: 10px;
+        background-color: white;
+        z-index: 999;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 5px;
+      }
+
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        margin-bottom: 10px;
+      }
+
+      button.popupButton {
+        margin-right: 5px;
+      }
+
+      .popupButton {
+        margin-right: 5px;
+        cursor: pointer;
+      }
+
+      .popupButtonTop {
+        margin-bottom: 10px;
+        cursor: pointer;
+      }
+
+      .roomNumberText {
+        font-size: 14px;
+        color: white;
+        text-align: center;
+      }
+      #searchContainer {
+        margin-top: 10px;
+        display: flex;
+        align-items: center;
+      }
+
+      #searchInput {
+        margin-right: 10px;
+      }
+
+      #searchButton {
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="canvasContainer">
+      <canvas id="canvas" width="1650" height="700"></canvas>
+    </div>
+
+    <div id="legend">
+      <div class="occupied"></div>
+      <span>Occupied</span>
+      <div class="empty"></div>
+      <span>Empty</span>
+      <div class="last-two-days"></div>
+      <span>Last Two Days</span>
+      <div class="last-day"></div>
+      <span>Last Day</span>
+    </div>
+
+    <div id="pageNavigation">
+      <button onclick="prevPage()">Previous Page</button>
+      <span id="currentPage">Page 1</span>
+      <button onclick="nextPage()">Next Page</button>
+      <button onclick="addCircles()">Add Circles</button>
+      <button id="lockUnlockBtn" onclick="toggleLockUnlock()">
+        Lock/Unlock Circles
+      </button>
+    </div>
+    <div id="searchContainer">
+      <input type="text" id="searchInput" placeholder="Enter Room Number" />
+      <button id="searchButton" onclick="searchRoom()">Search Room</button>
+    </div>
+    <div id="moreOptionsContainer">
+      <button id="moreOptions" onclick="toggleOptionsDropdown()">
+        More Options
+      </button>
+      <div id="optionsDropdown">
+        <a class="dropdownButton" onclick="addCircles()">Add More Circles</a>
+        <a class="dropdownButton" onclick="toggleLockUnlock()"
+          >Lock/Unlock Circles</a
+        >
+      </div>
+    </div>
+    <script>
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      let currentPage = 1;
+      let isDragging = false;
+      let selectedCircle = null;
+      let isLocked = false;
+
+      const pages = [[], [], [], []];
+
+      canvas.addEventListener("mousedown", handleMouseDown);
+      canvas.addEventListener("mousemove", handleMouseMove);
+      canvas.addEventListener("mouseup", handleMouseUp);
+      canvas.addEventListener("dblclick", handleCanvasDoubleClick);
+
+      function drawCircles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pages[currentPage - 1].forEach((circle) => {
+          ctx.beginPath();
+          ctx.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI);
+          ctx.fillStyle = circle.color;
+          ctx.fill();
+          ctx.stroke();
+          ctx.closePath();
+
+          // Display room number inside the circle
+          ctx.font = "14px Arial";
+          ctx.fillStyle = "white";
+          ctx.textAlign = "center";
+          ctx.fillText(circle.roomNumber, circle.x, circle.y + 5);
+        });
+      }
+
+      function handleMouseDown(event) {
+        if (!isLocked) {
+          const mouseX = event.clientX - canvas.getBoundingClientRect().left;
+          const mouseY = event.clientY - canvas.getBoundingClientRect().top;
+
+          selectedCircle = pages[currentPage - 1].find((circle) => {
+            const distance = Math.sqrt(
+              (mouseX - circle.x) ** 2 + (mouseY - circle.y) ** 2
+            );
+            return distance <= circle.radius;
+          });
+
+          if (selectedCircle) {
+            isDragging = true;
+          }
+        }
+      }
+
+      function handleMouseMove(event) {
+        if (isDragging && selectedCircle) {
+          selectedCircle.x =
+            event.clientX - canvas.getBoundingClientRect().left;
+          selectedCircle.y = event.clientY - canvas.getBoundingClientRect().top;
+          drawCircles();
+        }
+      }
+
+      function handleMouseUp() {
+        isDragging = false;
+        selectedCircle = null;
+      }
+
+      function changeCircleColor(circle, daysLeft) {
+        // Assume daysLeft is calculated somehow
+        if (daysLeft <= 0) {
+          circle.color = "red";
+        } else if (daysLeft === 2) {
+          circle.color = "yellow";
+        } else if (daysLeft > 3) {
+          circle.color = "green";
+        } else {
+          circle.color = "darkgray";
+        }
+      }
+
+      function nextPage() {
+        if (currentPage < pages.length) {
+          currentPage++;
+          document.getElementById(
+            "currentPage"
+          ).innerText = `Page ${currentPage}`;
+          drawCircles();
+        }
+      }
+
+      function prevPage() {
+        if (currentPage > 1) {
+          currentPage--;
+          document.getElementById(
+            "currentPage"
+          ).innerText = `Page ${currentPage}`;
+          drawCircles();
+        }
+      }
+
+      // ... (other functions)
+
+      function saveCircles() {
+        const serializedPages = JSON.stringify(pages);
+        localStorage.setItem("savedPages", serializedPages);
+        alert("Circles saved successfully!");
+      }
+
+      function loadCircles() {
+        const serializedPages = localStorage.getItem("savedPages");
+
+        if (serializedPages) {
+          pages.splice(0, pages.length, ...JSON.parse(serializedPages));
+          drawCircles();
+          alert("Circles loaded successfully!");
+        } else {
+          alert("No saved circles found.");
+        }
+      }
+
+      document.getElementById("saveBtn").addEventListener("click", saveCircles);
+      document.getElementById("loadBtn").addEventListener("click", loadCircles);
+
+      // ... (other functions)
+
+      document.addEventListener("click", function (event) {
+        const optionsDropdown = document.getElementById("optionsDropdown");
+        const moreOptionsButton = document.getElementById("moreOptions");
+
+        if (
+          event.target !== moreOptionsButton &&
+          event.target !== optionsDropdown &&
+          !optionsDropdown.contains(event.target)
+        ) {
+          optionsDropdown.style.display = "none";
+        }
+      });
+    </script>
+  </body>
+</html>

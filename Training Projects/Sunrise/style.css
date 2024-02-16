@@ -1,0 +1,40 @@
+#canvas {
+  border: 1px solid black;
+}
+
+#legend {
+  display: flex;
+  margin-top: 10px;
+}
+
+#legend > div {
+  margin-right: 10px;
+}
+
+.occupied {
+  background-color: green;
+  width: 20px;
+  height: 20px;
+}
+
+.empty {
+  background-color: darkgray;
+  width: 20px;
+  height: 20px;
+}
+
+.last-two-days {
+  background-color: yellow;
+  width: 20px;
+  height: 20px;
+}
+
+.last-day {
+  background-color: red;
+  width: 20px;
+  height: 20px;
+}
+
+#pageNavigation {
+  margin-top: 10px;
+}

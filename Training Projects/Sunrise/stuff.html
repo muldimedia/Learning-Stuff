@@ -1,0 +1,264 @@
+<script>
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  const circlesPerPage = [80, 180, 50];
+  let currentPage = 1;
+  let isDragging = false;
+  let selectedCircle = null;
+
+  const pages = [[], [], []];
+
+  canvas.addEventListener("mousedown", handleMouseDown);
+  canvas.addEventListener("mousemove", handleMouseMove);
+  canvas.addEventListener("mouseup", handleMouseUp);
+  canvas.addEventListener("dblclick", handleCanvasDoubleClick);
+
+  function drawCircles() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    pages[currentPage - 1].forEach((circle) => {
+      ctx.beginPath();
+      ctx.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI);
+      ctx.fillStyle = circle.color;
+      ctx.fill();
+      ctx.stroke();
+      ctx.closePath();
+    });
+  }
+
+  function handleMouseDown(event) {
+    const mouseX = event.clientX - canvas.getBoundingClientRect().left;
+    const mouseY = event.clientY - canvas.getBoundingClientRect().top;
+
+    selectedCircle = pages[currentPage - 1].find((circle) => {
+      const distance = Math.sqrt(
+        (mouseX - circle.x) ** 2 + (mouseY - circle.y) ** 2
+      );
+      return distance <= circle.radius;
+    });
+
+    if (selectedCircle) {
+      isDragging = true;
+    }
+  }
+
+  function handleMouseMove(event) {
+    if (isDragging && selectedCircle) {
+      selectedCircle.x = event.clientX - canvas.getBoundingClientRect().left;
+      selectedCircle.y = event.clientY - canvas.getBoundingClientRect().top;
+      drawCircles();
+    }
+  }
+
+  function handleMouseUp() {
+    isDragging = false;
+    selectedCircle = null;
+  }
+
+  function changeCircleColor(circle, daysLeft) {
+    // Assume daysLeft is calculated somehow
+    if (daysLeft <= 0) {
+      circle.color = "red";
+    } else if (daysLeft === 2) {
+      circle.color = "yellow";
+    } else if (daysLeft > 3) {
+      circle.color = "green";
+    } else {
+      circle.color = "darkgray";
+    }
+  }
+
+  function nextPage() {
+    if (currentPage < pages.length) {
+      currentPage++;
+      document.getElementById("currentPage").innerText = `Page ${currentPage}`;
+      drawCircles();
+    }
+  }
+
+  function prevPage() {
+    if (currentPage > 1) {
+      currentPage--;
+      document.getElementById("currentPage").innerText = `Page ${currentPage}`;
+      drawCircles();
+    }
+  }
+
+  function addCircles() {
+    const numberOfCircles = prompt("Enter the number of circles to add:");
+
+    if (!isNaN(numberOfCircles) && numberOfCircles > 0) {
+      for (let i = 0; i < numberOfCircles; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        pages[currentPage - 1].push(createCircle(x, y));
+      }
+      drawCircles();
+    } else {
+      alert("Invalid input. Please enter a positive number.");
+    }
+  }
+
+  function removeCircles() {
+    const numberOfCircles = prompt("Enter the number of circles to remove:");
+
+    if (!isNaN(numberOfCircles) && numberOfCircles > 0) {
+      if (numberOfCircles >= pages[currentPage - 1].length) {
+        alert("Cannot remove more circles than available.");
+      } else {
+        pages[currentPage - 1] = pages[currentPage - 1].slice(
+          0,
+          -numberOfCircles
+        );
+        drawCircles();
+      }
+    } else {
+      alert("Invalid input. Please enter a positive number.");
+    }
+  }
+
+  function handleCanvasDoubleClick(event) {
+    const mouseX = event.clientX - canvas.getBoundingClientRect().left;
+    const mouseY = event.clientY - canvas.getBoundingClientRect().top;
+
+    const clickedCircle = pages[currentPage - 1].find((circle) => {
+      const distance = Math.sqrt(
+        (mouseX - circle.x) ** 2 + (mouseY - circle.y) ** 2
+      );
+      return distance <= circle.radius;
+    });
+
+    if (clickedCircle) {
+      showGuestInfoPopup(clickedCircle);
+    }
+  }
+
+  function showGuestInfoPopup(circle) {
+    const popup = document.createElement("div");
+    popup.style.position = "absolute";
+    popup.style.top = "50%";
+    popup.style.left = "50%";
+    popup.style.transform = "translate(-50%, -50%)";
+    popup.style.border = "2px solid black";
+    popup.style.padding = "10px";
+    popup.style.backgroundColor = "white";
+    popup.style.zIndex = "999";
+
+    const guestNameLabel = document.createElement("label");
+    guestNameLabel.textContent = "Guest Name:";
+    const guestNameInput = document.createElement("input");
+    guestNameInput.type = "text";
+    guestNameInput.value = circle.guestName || "";
+
+    const arrivalLabel = document.createElement("label");
+    arrivalLabel.textContent = "Arrival (dd//mm//yy):";
+    const arrivalInput = document.createElement("input");
+    arrivalInput.type = "text";
+    arrivalInput.value = circle.arrival || "";
+
+    const departureLabel = document.createElement("label");
+    departureLabel.textContent = "Departure (dd//mm//yy):";
+    const departureInput = document.createElement("input");
+    departureInput.type = "text";
+    departureInput.value = circle.departure || "";
+
+    const totalDaysLabel = document.createElement("label");
+    totalDaysLabel.textContent = "Total Days:";
+    const totalDaysInput = document.createElement("input");
+    totalDaysInput.type = "text";
+    totalDaysInput.value = circle.totalDays || "";
+
+    const saveButton = document.createElement("button");
+    saveButton.textContent = "Save Changes";
+    saveButton.onclick = () => {
+      // Validate dates and calculate total days
+      const arrivalDate = new Date(arrivalInput.value);
+      const departureDate = new Date(departureInput.value);
+
+      if (
+        isValidDate(arrivalDate) &&
+        isValidDate(departureDate) &&
+        departureDate >= arrivalDate
+      ) {
+        circle.guestName = guestNameInput.value;
+        circle.arrival = formatDate(arrivalDate);
+        circle.departure = formatDate(departureDate);
+
+        // Calculate and set total days
+        const totalDays = calculateTotalDays(arrivalDate, departureDate);
+        circle.totalDays = totalDays;
+        totalDaysInput.value = totalDays;
+
+        // Change circle color based on total days
+        changeCircleColor(circle, totalDays);
+
+        drawCircles();
+        document.body.removeChild(popup);
+      } else {
+        alert(
+          "Invalid date format or departure before arrival. Please correct and try again."
+        );
+      }
+    };
+
+    const deleteButton = document.createElement("button");
+    deleteButton.textContent = "Delete Circle";
+    deleteButton.onclick = () => {
+      // Delete circle logic here...
+      pages[currentPage - 1] = pages[currentPage - 1].filter(
+        (c) => c !== circle
+      );
+      drawCircles();
+      document.body.removeChild(popup);
+    };
+
+    document.body.addEventListener("click", outsidePopupClick);
+
+    function outsidePopupClick(e) {
+      if (!popup.contains(e.target)) {
+        document.body.removeEventListener("click", outsidePopupClick);
+        document.body.removeChild(popup);
+      }
+    }
+
+    popup.appendChild(guestNameLabel);
+    popup.appendChild(guestNameInput);
+    popup.appendChild(document.createElement("br"));
+
+    popup.appendChild(arrivalLabel);
+    popup.appendChild(arrivalInput);
+    popup.appendChild(document.createElement("br"));
+
+    popup.appendChild(departureLabel);
+    popup.appendChild(departureInput);
+    popup.appendChild(document.createElement("br"));
+
+    popup.appendChild(totalDaysLabel);
+    popup.appendChild(totalDaysInput);
+    popup.appendChild(document.createElement("br"));
+
+    popup.appendChild(saveButton);
+    popup.appendChild(deleteButton);
+
+    document.body.appendChild(popup);
+  }
+
+  function calculateTotalDays(arrivalDate, departureDate) {
+    const oneDay = 24 * 60 * 60 * 1000; // hours * minutes * seconds * milliseconds
+    return Math.round(Math.abs((arrivalDate - departureDate) / oneDay)) + 1;
+  }
+
+  function isValidDate(date) {
+    return !isNaN(date.getTime());
+  }
+
+  function formatDate(date) {
+    const day = date.getDate().toString().padStart(2, "0");
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const year = date.getFullYear().toString().slice(-2);
+    return `${day}/${month}/${year}`;
+  }
+
+  function createCircle(x, y) {
+    return { x, y, radius: 30, color: "darkgray" };
+  }
+</script>

@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Canvas Magic</title>
+    <style>
+      body {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center; /* Center the canvas */
+        justify-content: center;
+        height: 100vh;
+        background-color: #f4f4f4;
+      }
+
+      #canvasContainer {
+        position: relative;
+        border: 1px solid black;
+        margin-bottom: 20px;
+      }
+
+      canvas {
+        display: block;
+      }
+
+      #legend {
+        display: flex;
+        margin-top: 10px;
+      }
+
+      #legend > div {
+        margin-right: 10px;
+        display: flex;
+        align-items: center;
+      }
+
+      .occupied,
+      .empty,
+      .last-two-days,
+      .last-day {
+        width: 20px;
+        height: 20px;
+        margin-right: 5px;
+      }
+
+      .occupied {
+        background-color: green;
+      }
+      .empty {
+        background-color: darkgray;
+      }
+      .last-two-days {
+        background-color: yellow;
+      }
+      .last-day {
+        background-color: red;
+      }
+
+      #pageNavigation {
+        display: flex;
+        align-items: flex-end; /* Align buttons to the bottom */
+        margin-right: 10px;
+      }
+
+      button {
+        margin-right: 10px;
+        cursor: pointer;
+      }
+
+      .popup {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        border: 2px solid black;
+        padding: 10px;
+        background-color: white;
+        z-index: 999;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 5px;
+      }
+
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        margin-bottom: 10px;
+      }
+
+      button.popupButton {
+        margin-right: 5px;
+      }
+
+      .date-container {
+        display: flex;
+      }
+
+      .date-container select {
+        margin-right: 5px;
+      }
+
+      .total-days {
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="canvasContainer">
+      <canvas id="canvas" width="1650" height="700"></canvas>
+    </div>
+
+    <div id="legend">
+      <div class="occupied"></div>
+      <span>Occupied</span>
+      <div class="empty"></div>
+      <span>Empty</span>
+      <div class="last-two-days"></div>
+      <span>Last Two Days</span>
+      <div class="last-day"></div>
+      <span>Last Day</span>
+    </div>
+
+    <div id="pageNavigation">
+      <button onclick="prevPage()">Previous Page</button>
+      <span id="currentPage">Page 1</span>
+      <button onclick="nextPage()">Next Page</button>
+      <button onclick="addCircles()">Add Circles</button>
+      <button id="lockUnlockBtn" onclick="toggleLockUnlock()">
+        Lock/Unlock Circles
+      </button>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      let currentPage = 1;
+      let isDragging = false;
+      let selectedCircle = null;
+      let isLocked = false;
+
+      const pages = [[], [], [], []];
+
+      canvas.addEventListener("mousedown", handleMouseDown);
+      canvas.addEventListener("mousemove", handleMouseMove);
+      canvas.addEventListener("mouseup", handleMouseUp);
+      canvas.addEventListener("dblclick", handleCanvasDoubleClick);
+
+      function drawCircles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pages[currentPage - 1].forEach((circle) => {
+          ctx.beginPath();
+          ctx.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI);
+          ctx.fillStyle = circle.color;
+          ctx.fill();
+          ctx.stroke();
+          ctx.closePath();
+        });
+      }
+
+      function handleMouseDown(event) {
+        if (!isLocked) {
+          const mouseX = event.clientX - canvas.getBoundingClientRect().left;
+          const mouseY = event.clientY - canvas.getBoundingClientRect().top;
+
+          selectedCircle = pages[currentPage - 1].find((circle) => {
+            const distance = Math.sqrt(
+              (mouseX - circle.x) ** 2 + (mouseY - circle.y) ** 2
+            );
+            return distance <= circle.radius;
+          });
+
+          if (selectedCircle) {
+            isDragging = true;
+          }
+        }
+      }
+
+      function handleMouseMove(event) {
+        if (isDragging && selectedCircle) {
+          selectedCircle.x =
+            event.clientX - canvas.getBoundingClientRect().left;
+          selectedCircle.y = event.clientY - canvas.getBoundingClientRect().top;
+          drawCircles();
+        }
+      }
+
+      function handleMouseUp() {
+        isDragging = false;
+        selectedCircle = null;
+      }
+
+      function changeCircleColor(circle, daysLeft) {
+        // Assume daysLeft is calculated somehow
+        if (daysLeft <= 0) {
+          circle.color = "red";
+        } else if (daysLeft === 2) {
+          circle.color = "yellow";
+        } else if (daysLeft > 3) {
+          circle.color = "green";
+        } else {
+          circle.color = "darkgray";
+        }
+      }
+
+      function nextPage() {
+        if (currentPage < pages.length) {
+          currentPage++;
+          document.getElementById(
+            "currentPage"
+          ).innerText = `Page ${currentPage}`;
+          drawCircles();
+        }
+      }
+
+      function prevPage() {
+        if (currentPage > 1) {
+          currentPage--;
+          document.getElementById(
+            "currentPage"
+          ).innerText = `Page ${currentPage}`;
+          drawCircles();
+        }
+      }
+
+      function addCircles() {
+        const numberOfCircles = prompt("Enter the number of circles to add:");
+
+        if (!isNaN(numberOfCircles) && numberOfCircles > 0) {
+          for (let i = 0; i < numberOfCircles; i++) {
+            const x = Math.random() * canvas.width;
+            const y = Math.random() * canvas.height;
+            pages[currentPage - 1].push(createCircle(x, y));
+          }
+          drawCircles();
+        } else {
+          alert("Invalid input. Please enter a positive number.");
+        }
+      }
+
+      function handleMouseDown(event) {
+        if (!isLocked) {
+          const mouseX = event.clientX - canvas.getBoundingClientRect().left;
+          const mouseY = event.clientY - canvas.getBoundingClientRect().top;
+
+          selectedCircle = pages[currentPage - 1].find((circle) => {
+            const distance = Math.sqrt(
+              (mouseX - circle.x) ** 2 + (mouseY - circle.y) ** 2
+            );
+            return distance <= circle.radius;
+          });
+
+          if (selectedCircle) {
+            isDragging = true;
+          }
+        }
+      }
+
+      function toggleLockUnlock() {
+        isLocked = !isLocked;
+        document.getElementById("lockUnlockBtn").textContent = isLocked
+          ? "Unlock Circles"
+          : "Lock Circles";
+      }
+
+      function handleCanvasDoubleClick(event) {
+        const mouseX = event.clientX - canvas.getBoundingClientRect().left;
+        const mouseY = event.clientY - canvas.getBoundingClientRect().top;
+
+        const clickedCircle = pages[currentPage - 1].find((circle) => {
+          const distance = Math.sqrt(
+            (mouseX - circle.x) ** 2 + (mouseY - circle.y) ** 2
+          );
+          return distance <= circle.radius;
+        });
+
+        if (clickedCircle) {
+          showGuestInfoPopup(clickedCircle);
+        }
+      }
+
+      function showGuestInfoPopup(circle) {
+        const popup = document.createElement("div");
+        popup.classList.add("popup");
+
+        const guestNameLabel = document.createElement("label");
+        guestNameLabel.textContent = "Guest Name:";
+        const guestNameInput = document.createElement("input");
+        guestNameInput.type = "text";
+        guestNameInput.value = circle.guestName || "";
+
+        const roomNumberLabel = document.createElement("label");
+        roomNumberLabel.textContent = "Room Number:";
+        const roomNumberInput = document.createElement("input");
+        roomNumberInput.type = "number";
+        roomNumberInput.value = circle.roomNumber || "";
+        roomNumberInput.addEventListener("input", () => {
+          roomNumberInput.value = roomNumberInput.value.replace(/[^0-9]/g, "");
+        });
+
+        const arrivalLabel = document.createElement("label");
+        arrivalLabel.textContent = "Arrival Date:";
+        const arrivalDayDropdown = createDropdown(1, 31, circle.arrival?.day);
+        const arrivalMonthDropdown = createDropdown(
+          1,
+          12,
+          circle.arrival?.month
+        );
+
+        const departureLabel = document.createElement("label");
+        departureLabel.textContent = "Departure Date:";
+        const departureDayDropdown = createDropdown(
+          1,
+          31,
+          circle.departure?.day
+        );
+        const departureMonthDropdown = createDropdown(
+          1,
+          12,
+          circle.departure?.month
+        );
+
+        const totalDaysLabel = document.createElement("label");
+        totalDaysLabel.textContent = "Total Days:";
+        const totalDays = document.createElement("span");
+        totalDays.className = "total-days";
+        totalDays.textContent = calculateDaysLeft(
+          circle.arrival,
+          circle.departure
+        );
+
+        const saveButton = document.createElement("button");
+        saveButton.textContent = "Save Changes";
+        saveButton.className = "popupButton";
+        saveButton.onclick = () => {
+          const roomNumberValue = roomNumberInput.value.trim();
+          const arrivalDayValue = arrivalDayDropdown.value;
+          const arrivalMonthValue = arrivalMonthDropdown.value;
+          const departureDayValue = departureDayDropdown.value;
+          const departureMonthValue = departureMonthDropdown.value;
+
+          if (
+            roomNumberValue === "" ||
+            arrivalDayValue === "" ||
+            arrivalMonthValue === "" ||
+            departureDayValue === "" ||
+            departureMonthValue === ""
+          ) {
+            alert(
+              "All fields are required. Please fill in the missing information."
+            );
+            return;
+          }
+
+          if (isDateValid(circle.arrival, circle.departure)) {
+            if (isRoomNumberUnique(roomNumberValue, circle)) {
+              circle.guestName = guestNameInput.value;
+              circle.roomNumber = roomNumberValue;
+              circle.arrival = {
+                day: parseInt(arrivalDayValue),
+                month: parseInt(arrivalMonthValue),
+              };
+              circle.departure = {
+                day: parseInt(departureDayValue),
+                month: parseInt(departureMonthValue),
+              };
+
+              totalDays.textContent = calculateDaysLeft(
+                circle.arrival,
+                circle.departure
+              );
+              const daysLeft = parseInt(totalDays.textContent);
+              changeCircleColor(circle, daysLeft);
+              drawCircles();
+
+              document.body.removeChild(popup);
+            } else {
+              alert("Room number must be unique among the circles.");
+            }
+          } else {
+            alert("Departure date must not be earlier than arrival date.");
+          }
+        };
+
+        const deleteButton = document.createElement("button");
+        deleteButton.textContent = "Delete Circle";
+        deleteButton.className = "popupButton";
+        deleteButton.onclick = () => {
+          if (confirm("Are you sure you want to delete this circle?")) {
+            const index = pages[currentPage - 1].indexOf(circle);
+            if (index !== -1) {
+              pages[currentPage - 1].splice(index, 1);
+              drawCircles();
+              document.body.removeChild(popup);
+            }
+          }
+        };
+
+        document.body.addEventListener("click", outsidePopupClick);
+
+        function outsidePopupClick(e) {
+          if (!popup.contains(e.target)) {
+            document.body.removeEventListener("click", outsidePopupClick);
+            document.body.removeChild(popup);
+          }
+        }
+
+        popup.appendChild(guestNameLabel);
+        popup.appendChild(guestNameInput);
+        popup.appendChild(document.createElement("br"));
+
+        popup.appendChild(roomNumberLabel);
+        popup.appendChild(roomNumberInput);
+        popup.appendChild(document.createElement("br"));
+
+        popup.appendChild(arrivalLabel);
+        popup.appendChild(arrivalDayDropdown);
+        popup.appendChild(arrivalMonthDropdown);
+        popup.appendChild(document.createElement("br"));
+
+        popup.appendChild(departureLabel);
+        popup.appendChild(departureDayDropdown);
+        popup.appendChild(departureMonthDropdown);
+        popup.appendChild(document.createElement("br"));
+
+        popup.appendChild(totalDaysLabel);
+        popup.appendChild(totalDays);
+        popup.appendChild(document.createElement("br"));
+
+        popup.appendChild(saveButton);
+        popup.appendChild(deleteButton);
+
+        document.body.appendChild(popup);
+      }
+
+      function createDropdown(start, end, selectedValue) {
+        const dropdown = document.createElement("select");
+
+        for (let i = start; i <= end; i++) {
+          const option = document.createElement("option");
+          option.value = i.toString();
+          option.text = i.toString();
+          if (selectedValue === i) {
+            option.selected = true;
+          }
+          dropdown.add(option);
+        }
+
+        return dropdown;
+      }
+
+      function calculateDaysLeft(arrivalDate, departureDate) {
+        // Placeholder logic, replace with actual calculation
+        return 5;
+      }
+
+      function isDateValid(arrivalDate, departureDate) {
+        const arrivalTimestamp = new Date(
+          2000, // year is arbitrary since we don't have it
+          arrivalDate.month - 1, // months are zero-based
+          arrivalDate.day
+        ).getTime();
+
+        const departureTimestamp = new Date(
+          2000, // year is arbitrary since we don't have it
+          departureDate.month - 1, // months are zero-based
+          departureDate.day
+        ).getTime();
+
+        return arrivalTimestamp <= departureTimestamp;
+      }
+
+      function createCircle(x, y) {
+        return { x, y, radius: 30, color: "darkgray" };
+      }
+
+      function isRoomNumberUnique(roomNumber, currentCircle) {
+        const circlesWithSameRoomNumber = pages[currentPage - 1].filter(
+          (circle) =>
+            circle.roomNumber === roomNumber && circle !== currentCircle
+        );
+
+        return circlesWithSameRoomNumber.length < 2;
+      }
+    </script>
+  </body>
+</html>
